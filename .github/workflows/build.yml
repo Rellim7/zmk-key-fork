@@ -89,8 +89,9 @@ jobs:
                 // firmware — bricking the central half when peripheral firmware is flashed there.
                 const cmakeName = shieldArgs['cmake-args'] ? '-' + (shieldArgs.nickname || shieldArgs['cmake-args'].split(' ').join('')) : '';
                 const stashDir = `out/${{ matrix.board }}${shieldArgs.shield ? '-' + shieldArgs.shield : ''}${cmakeName}`;
+                // Quote stashDir — multi-shield names contain spaces (e.g. "lily58_left nice_view_adapter nice_view").
                 // .hex isn't always produced (RP2040 boards skip it); ignore that failure.
-                execSync(`mkdir -p ${stashDir} && cp build/zephyr/zmk.uf2 ${stashDir}/ && (cp build/zephyr/zmk.hex ${stashDir}/ 2>/dev/null || true)`);
+                execSync(`mkdir -p "${stashDir}" && cp build/zephyr/zmk.uf2 "${stashDir}/" && (cp build/zephyr/zmk.hex "${stashDir}/" 2>/dev/null || true)`);
               } catch (e) {
                 console.error(`::error::Failed to build ${{ matrix.board }} ${shieldArgs.shield} ${shieldArgs['cmake-args']}`);
                 console.error(e);
