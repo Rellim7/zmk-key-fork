@@ -83,6 +83,13 @@ jobs:
                 const output = execSync(`west build -s app -p -b ${{ matrix.board }} ${shieldArgs.snippet ? '-S ' + shieldArgs.snippet : ''} -- ${shieldArgs.shield ? '-DSHIELD="' + shieldArgs.shield + '"' : ''} ${shieldArgs['cmake-args'] || ''}`);
 
                 console.log(output.toString());
+
+                // Stash each shield's output before the next pristine build wipes build/.
+                // Without this, both shields' artifacts end up containing the LAST shield's
+                // firmware — bricking the central half when peripheral firmware is flashed there.
+                const cmakeName = shieldArgs['cmake-args'] ? '-' + (shieldArgs.nickname || shieldArgs['cmake-args'].split(' ').join('')) : '';
+                const stashDir = `out/${{ matrix.board }}${shieldArgs.shield ? '-' + shieldArgs.shield : ''}${cmakeName}`;
+                execSync(`mkdir -p ${stashDir} && cp build/zephyr/zmk.uf2 ${stashDir}/ && cp build/zephyr/zmk.hex ${stashDir}/`);
               } catch (e) {
                 console.error(`::error::Failed to build ${{ matrix.board }} ${shieldArgs.shield} ${shieldArgs['cmake-args']}`);
                 console.error(e);
@@ -112,21 +119,21 @@ jobs:
               try {
                 console.log(`::group::${{ matrix.board}} ${shieldArgs.shield} Upload`)
 
+                const cmakeName = shieldArgs['cmake-args'] ? '-' + (shieldArgs.nickname || shieldArgs['cmake-args'].split(' ').join('')) : '';
+                const artifactName = `${{ matrix.board }}${shieldArgs.shield ? '-' + shieldArgs.shield : ''}${cmakeName}-zmk`;
+                const stashDir = `out/${{ matrix.board }}${shieldArgs.shield ? '-' + shieldArgs.shield : ''}${cmakeName}`;
+
                 const fileExtensions = ["hex", "uf2"];
 
                 const files = fileExtensions
-                  .map(extension => "build/zephyr/zmk." + extension)
+                  .map(extension => `${stashDir}/zmk.${extension}`)
                   .filter(path => fs.existsSync(path));
 
-                const rootDirectory = 'build/zephyr';
                 const options = {
                     continueOnError: true
                 }
 
-                const cmakeName = shieldArgs['cmake-args'] ? '-' + (shieldArgs.nickname || shieldArgs['cmake-args'].split(' ').join('')) : '';
-                const artifactName = `${{ matrix.board }}${shieldArgs.shield ? '-' + shieldArgs.shield : ''}${cmakeName}-zmk`;
-
-                await artifact.uploadArtifact(artifactName, files, rootDirectory, options);
+                await artifact.uploadArtifact(artifactName, files, stashDir, options);
               } catch (e) {
                 console.error(`::error::Failed to upload ${{ matrix.board }} ${shieldArgs.shield} ${shieldArgs['cmake-args']}`);
                 console.error(e);
